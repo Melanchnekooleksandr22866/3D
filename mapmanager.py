@@ -1,36 +1,42 @@
 import pickle
+
 class Mapmanager():
     def __init__(self):
         self.model = 'block'
-        self.texture = 'block.png'          
-        self.colors = [
-            (0.2, 0.2, 0.35, 1),
-            (0.2, 0.5, 0.2, 1),
-            (0.7, 0.2, 0.2, 1),
-            (0.5, 0.3, 0.0, 1)
+        self.texture = 'block.png'  # Це не використовуватиметься для текстури за замовчуванням
+        self.textures = [
+            'bedrock.png',  # Текстура для бедроку
+            'stoyn.png',    # Текстура для каменю
+            'dirt.png',     # Текстура для землі
+            'grass.png'    # Текстура для трави
         ]
-        self.startNew() 
+        self.startNew()
 
     def startNew(self):
         self.land = render.attachNewNode("Land")
 
-    def getColor(self, z):
-        doubled_limit = len(self.colors) * 2  
-        if z < doubled_limit:
-            index = min(z // 2, len(self.colors) - 1)  
-            return self.colors[index]
+    def getTexture(self, z):
+        if z == 0:
+            return self.textures[0]  # Бедрок
+        elif 1 <= z <= 7:
+            return self.textures[1]  # Стоун
+        elif z == 8:
+            return self.textures[2]  # Дірт
+        elif z == 9:
+            return self.textures[3]  # Грасс
         else:
-            return self.colors[len(self.colors) - 1]
+            return None  # Якщо блок поза межами визначених рівнів
 
     def addBlock(self, position):
         self.block = loader.loadModel(self.model)
-        self.block.setTexture(loader.loadTexture(self.texture)) 
+        z = int(position[2])
+        self.texture = self.getTexture(z)
+
+        if self.texture:  # Якщо текстура визначена
+            self.block.setTexture(loader.loadTexture(self.texture))
         self.block.setPos(position)
-        self.color = self.getColor(int(position[2]))
-        self.block.setColor(self.color)
 
         self.block.setTag("at", str(position))
-
         self.block.reparentTo(self.land)
 
     def clear(self):
@@ -43,24 +49,21 @@ class Mapmanager():
             y = 0
             for line in file:
                 x = 0
-                line = line.strip().split(' ') 
+                line = line.strip().split(' ')
                 for z in line:
-                    if z.isdigit():  
+                    if z.isdigit():
                         for z0 in range(int(z) + 1):
                             self.addBlock((x, y, z0))
                         x += 1
                 y += 1
         return x, y
-    
+
     def findBlocks(self, pos):
         return self.land.findAllMatches("=at=" + str(pos))
 
     def isEmpty(self, pos):
         blocks = self.findBlocks(pos)
-        if blocks:
-            return False
-        else:
-            return True
+        return not blocks
 
     def findHighestEmpty(self, pos):
         x, y, z = pos
@@ -84,15 +87,12 @@ class Mapmanager():
         x, y, z = self.findHighestEmpty(position)
         pos = x, y, z - 1
         for block in self.findBlocks(pos):
-                block.removeNode()
+            block.removeNode()
 
     def saveMap(self):
-
         blocks = self.land.getChildren()
         with open('my_map.dat', 'wb') as fout:
-
             pickle.dump(len(blocks), fout)
-
             for block in blocks:
                 x, y, z = block.getPos()
                 pos = (int(x), int(y), int(z))
@@ -100,12 +100,8 @@ class Mapmanager():
 
     def loadMap(self):
         self.clear()
-
         with open('my_map.dat', 'rb') as fin:
-            
             length = pickle.load(fin)
-
-            for i in range(lenght):
+            for i in range(length):
                 pos = pickle.load(fin)
-
                 self.addBlock(pos)
