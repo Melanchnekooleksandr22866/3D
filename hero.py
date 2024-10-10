@@ -1,4 +1,6 @@
-from panda3d.core import Vec3
+from panda3d.core import Vec3, TransparencyAttrib 
+from direct.gui.OnscreenImage import OnscreenImage  
+from direct.gui.DirectGui import DirectFrame  
 
 key_switch_camera = 'c'
 key_switch_mode = 'z'
@@ -23,9 +25,20 @@ class Hero():
         self.hero.setH(180)
         self.hero.setPos(pos)
         self.hero.reparentTo(render)
+        self.create_crosshair()  # Добавляем прицел
         self.cameraBind()
         self.accept_events()
         self.max_vert_angle = 60
+
+    def create_crosshair(self):
+        """Создаём прицел в виде крестика в центре экрана."""
+        # Создаем GUI элемент - простой крестик
+        self.crosshair = DirectFrame(frameColor=(1, 1, 1, 0),  # Прозрачный фон
+                                     frameSize=(-0.01, 0.01, -0.01, 0.01),  # Размеры прицела
+                                     pos=(0, 0, 0))  # Позиция по центру экрана
+        # Загружаем текстуру для крестика
+        self.crosshair_image = OnscreenImage(image='crosshair.png', pos=(0, 0, 0), scale=0.03)
+        self.crosshair_image.setTransparency(TransparencyAttrib.MAlpha)  # Устанавливаем прозрачность
 
     def cameraBind(self):
         base.disableMouse()
@@ -126,14 +139,17 @@ class Hero():
             self.hero.setZ(self.hero.getZ() - 1)
 
     def look_at_block(self):
-        """Метод для нахождения блока перед героем в пределах одного блока."""
+        """Метод для нахождения блока перед героем в пределах 5 блоков."""
         direction = base.camera.getQuat().getForward()  
         start_pos = self.hero.getPos() + Vec3(0, 0, 1.5)  
-        for i in range(1, 2):  
+        max_distance = 5 
+
+        for i in range(1, max_distance + 1):  
             check_pos = start_pos + direction * i  
-            block_pos = (round(check_pos.getX()), round(check_pos.getY()), round(check_pos.getZ()))
-            if not self.land.isEmpty(block_pos):
-                return block_pos  
+            block_pos = (round(check_pos.getX()), round(check_pos.getY()), round(check_pos.getZ())) 
+            if not self.land.isEmpty(block_pos):  
+                return block_pos
+
         return None
 
     def destroy_or_build(self, action):
@@ -151,7 +167,7 @@ class Hero():
 
     def build(self):
         angle = self.hero.getH() % 360
-        pos = self.look_at(angle)
+        pos = self.look_at_block(angle)
         if self.mode:
             self.land.addBlock(pos)
         else:
@@ -159,7 +175,7 @@ class Hero():
 
     def destroy(self):
         angle = self.hero.getH() % 360
-        pos = self.look_at(angle)
+        pos = self.look_at_block(angle)
         if self.mode:
             self.land.delBlock(pos)
         else:
@@ -184,8 +200,8 @@ class Hero():
         base.accept(key_down, self.down)
         base.accept(key_down + '-repeat', self.down)
 
-        base.accept('mouse1', lambda: self.destroy_or_build('destroy')) 
-        base.accept('mouse3', lambda: self.destroy_or_build('build'))    
+        base.accept('mouse1', lambda: self.destroy_or_build('destroy'))  # Ломать блоки на левую кнопку
+        base.accept('mouse3', lambda: self.destroy_or_build('build'))    # Ставить блоки на правую кнопку
 
         base.accept(key_savemap, self.land.saveMap)
         base.accept(key_loadmap, self.land.loadMap)
